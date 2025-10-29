@@ -1,0 +1,16 @@
+from joblib import load
+from sklearn.tree import export_text
+import os
+
+# Load your trained model
+tree_model = load("models/tree_matcher.joblib")
+
+# Export tree as text rules
+tree_rules = export_text(tree_model, feature_names=["feature1", "feature2", "feature3"])
+
+# Save to models folder
+file_path = os.path.join("models", "tree_rules.txt")
+with open(file_path, "w") as f:
+    f.write(tree_rules)
+
+print(f"Tree rules saved to {file_path}")

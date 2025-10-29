@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rakt-Sathi - Life's Lifeline</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        /* Custom Red Theme Configuration */
+        :root {
+            --primary-red: #D50000; /* Deep Red */
+            --light-red: #FFCDD2;   /* Very Light Red for accents */
+        }
+        .text-raktsathi-red { color: var(--primary-red); }
+        .bg-raktsathi-red { background-color: var(--primary-red); }
+        .hover\:bg-raktsathi-red-dark:hover { background-color: #B71C1C; }
+        .border-raktsathi-red { border-color: var(--primary-red); }
+
+        /* Custom scrollbar for chat */
+        #chat-history {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 0.5rem;
+            background-color: #fefefe;
+        }
+        .chat-message-bot {
+            background-color: var(--light-red);
+        }
+        .chat-message-user {
+            background-color: #e5e7eb;
+        }
+        
+        /* Ensure full screen height for content */
+        html, body {
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Modal styling for higher Z-index */
+        .z-\[999\] { z-index: 999; }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'raktsathi-red': '#D50000',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen flex flex-col">
+
+    <!-- Header & Navigation (Hidden until Login) -->
+    <header id="app-header" class="bg-white shadow-md hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-raktsathi-red flex items-center mb-4 sm:mb-0">
+                <i class="fas fa-hand-holding-medical mr-3"></i>
+                Rakt-Sathi
+            </h1>
+            <nav id="nav-tabs" class="w-full sm:w-auto flex justify-center space-x-2 sm:space-x-4 text-sm font-medium">
+                <button data-tab="register" class="tab-btn py-2 px-3 sm:px-4 rounded-lg text-white bg-raktsathi-red transition duration-150">
+                    <i class="fas fa-user-plus mr-1"></i> Donor Register
+                </button>
+                <button data-tab="request" class="tab-btn py-2 px-3 sm:px-4 rounded-lg text-gray-700 hover:bg-red-50 transition duration-150">
+                    <i class="fas fa-syringe mr-1"></i> Request Blood
+                </button>
+                <button data-tab="matches" class="tab-btn py-2 px-3 sm:px-4 rounded-lg text-gray-700 hover:bg-red-50 transition duration-150">
+                    <i class="fas fa-search mr-1"></i> View Matches
+                </button>
+                <button data-tab="chatbot" class="tab-btn py-2 px-3 sm:px-4 rounded-lg text-gray-700 hover:bg-red-50 transition duration-150">
+                    <i class="fas fa-robot mr-1"></i> Chatbot
+                </button>
+                <button id="logout-btn" class="py-2 px-3 sm:px-4 rounded-lg text-raktsathi-red border border-raktsathi-red hover:bg-red-50 transition duration-150">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Login Page Container (Shown by default) -->
+    <div id="login-container" class="flex-grow flex items-center justify-center p-4">
+        <!-- Content will be injected by renderLoginPage -->
+    </div>
+
+    <!-- Main Content Area (Hidden until Login) -->
+    <main id="main-app-content" class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full hidden">
+        <div id="content-container" class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl transition-all duration-300 ease-in-out">
+            <!-- Dynamic Content Renders Here -->
+        </div>
+
+        <!-- Notification Message Box -->
+        <div id="message-box" class="fixed bottom-4 right-4 bg-gray-900 text-white p-4 rounded-lg shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none">
+            Notification
+        </div>
+    </main>
+    
+    <!-- Emergency FAB Button -->
+    <button id="emergency-fab" class="hidden fixed bottom-10 right-10 w-16 h-16 rounded-full bg-red-600 text-white shadow-xl hover:bg-red-700 transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300 z-40" 
+            onclick="showConfirmationModal()">
+        <i class="fas fa-exclamation-triangle text-xl"></i>
+    </button>
+    
+    <!-- Custom Confirmation Modal (Z-index high to overlap everything) -->
+    <div id="confirmationModal" class="modal-overlay hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex justify-center items-center p-4 transition-opacity duration-300 z-[999]">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-2xl w-full sm:w-96">
+            <h2 class="text-xl font-bold text-red-600 mb-3"><i class="fas fa-exclamation-circle mr-2"></i> CRITICAL BLOOD EMERGENCY</h2>
+            <p class="text-gray-700 mb-6">
+                Are you sure? This action logs a *CRITICAL* request with your location to notify all nearby active donors immediately.
+            </p>
+            <div id="modalStatus" class="mb-4 text-sm font-semibold text-gray-700">Fetching location...</div>
+            <div class="flex justify-between space-x-4">
+                <button 
+                    class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-md hover:bg-gray-300 transition" 
+                    onclick="hideConfirmationModal()">
+                    Cancel
+                </button>
+                <button 
+                    id="confirmAlertButton"
+                    class="flex-1 px-4 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 transition shadow-lg disabled:opacity-50" 
+                    onclick="handleConfirmedAlert()">
+                    Yes, Send CRITICAL Alert
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Status/Result Modal -->
+    <div id="resultModal" class="modal-overlay hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex justify-center items-center p-4 transition-opacity duration-300 z-[999]">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-2xl w-full sm:w-96">
+            <h2 id="resultTitle" class="text-xl font-bold text-gray-800 mb-3">Alert Sent!</h2>
+            <p id="resultMessage" class="text-gray-700 mb-6"></p>
+            <button 
+                class="w-full px-4 py-2 bg-raktsathi-red text-white font-semibold rounded-md hover:bg-raktsathi-red-dark transition" 
+                onclick="document.getElementById('resultModal').classList.add('hidden')">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer (Conditional visibility) -->
+    <footer id="app-footer" class="py-4 bg-gray-800 text-white text-center">
+        <p class="text-sm">&copy; <span id="current-year"></span> Rakt-Sathi. A Lifeline Project.</p>
+    </footer>
+
+    <script type="module">
+        // --- FIREBASE IMPORTS (NEW) ---
+        // Aliasing imports to avoid potential 'Identifier has already been declared' errors
+        import { initializeApp as initApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth as fbGetAuth, signInAnonymously as fbSignInAnonymously, signInWithCustomToken as fbSignInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore as fbGetFirestore, collection as fbCollection, addDoc as fbAddDoc, setLogLevel as fbSetLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        // --------------------------------------------------------
+        // CORE CONFIGURATION & STATE
+        // --------------------------------------------------------
+        const API_BASE_URL = 'http://127.0.0.1:5000'; // Assuming Flask runs on default port
+        const loginContainer = document.getElementById('login-container');
+        const appHeader = document.getElementById('app-header');
+        const mainContent = document.getElementById('main-app-content');
+        const contentContainer = document.getElementById('content-container');
+        const navTabs = document.getElementById('nav-tabs');
+        
+        const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        const urgencies = ['Low', 'Normal', 'High', 'Critical'];
+        const cities = ["Visakhapatnam", "Vijayawada", "Guntur", "Nellore", "Kurnool", "Tirupati", "Rajahmundry", "Hyderabad", "Warangal"];
+
+        let activeTab = 'register';
+        let chatHistory = []; // Stores the conversation history
+
+        // --- Gemini API Configuration ---
+    const API_KEY = ""; // Canvas will provide this in runtime
+    const CHAT_MODEL = "gemini-2.5-flash-preview-05-20";
+    const CHAT_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${CHAT_MODEL}:generateContent?key=${API_KEY}`;
+    const SYSTEM_INSTRUCTION = "You are Rakt-Sathi, a friendly, compassionate, and highly informative AI assistant for blood donation. Your primary goal is to provide accurate information regarding blood donation eligibility, health requirements, the blood type compatibility chart, and using the Rakt-Sathi platform features. Maintain an encouraging and professional tone. Do not answer questions unrelated to blood donation, general health, or our platform.";
+
+
+        // --- Simulated Auth State ---
+        // Stores all simulated accounts {email: password}
+        const SIMULATED_ACCOUNTS = {
+            'demo@raktsathi.com': 'demopassword' // Default account for quick testing
+        };
+        let isLoggedIn = false;
+        let currentUserEmail = null; // Stores the email of the currently logged-in user
+        
+        // --- FIREBASE CONFIGURATION & STATE (NEW) ---
+        fbSetLogLevel('Debug'); // Use aliased function
+        let db;
+        let auth;
+        let userId = 'unknown';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof _firebase_config !== 'undefined' ? JSON.parse(_firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+
+        // --------------------------------------------------------
+        // AUTHENTICATION FUNCTIONS
+        // --------------------------------------------------------
+        
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
+        async function initializeFirebase() {
+            if (!firebaseConfig) {
+                console.error('Error: Firebase Config missing.');
+                return;
+            }
+
+            try {
+                const app = initApp(firebaseConfig); // Use aliased function
+                db = fbGetFirestore(app); // Use aliased function
+                auth = fbGetAuth(app); // Use aliased function
+
+                if (initialAuthToken) {
+                    await fbSignInWithCustomToken(auth, initialAuthToken); // Use aliased function
+                } else {
+                    await fbSignInAnonymously(auth); // Use aliased function
+                }
+
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                console.log(`Firebase initialized. User authenticated with ID: ${userId}`);
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+            }
+        }
+
+
+        /**
+         * Renders the initial Login Form.
+         */
+        function renderLoginPage() {
+            appHeader.classList.add('hidden');
+            mainContent.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+            document.getElementById('emergency-fab').classList.add('hidden'); // Hide FAB
+
+            loginContainer.innerHTML = `
+                <div class="w-full max-w-sm bg-white p-8 sm:p-10 rounded-xl shadow-2xl border-t-4 border-raktsathi-red">
+                    <div class="text-center mb-6">
+                        <i class="fas fa-hand-holding-medical text-5xl text-raktsathi-red mb-3"></i>
+                        <h2 class="text-3xl font-bold text-gray-800">Welcome to Rakt-Sathi</h2>
+                        <p class="text-gray-500 mt-1">Sign in to manage blood donations.</p>
+                    </div>
+                    
+                    <form id="login-form" class="space-y-4">
+                        <div>
+                            <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email ID</label>
+                            <input type="email" id="login-email" placeholder="Enter your email (e.g., demo@raktsathi.com)" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        </div>
+                        <div>
+                            <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input type="password" id="login-password" placeholder="Enter your password (e.g., demopassword)" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-raktsathi-red text-white font-semibold rounded-lg hover:bg-raktsathi-red-dark transition duration-200 shadow-md">
+                            <i class="fas fa-sign-in-alt mr-2"></i> Log In
+                        </button>
+                    </form>
+                    <p class="text-center text-sm mt-4">
+                        New user? <a href="#" id="switch-to-signup" class="text-raktsathi-red hover:underline font-medium">Create an Account</a>
+                    </p>
+                </div>
+            `;
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+            document.getElementById('switch-to-signup').addEventListener('click', (e) => {
+                e.preventDefault();
+                renderSignupPage();
+            });
+        }
+
+        /**
+         * Renders the Sign Up Form.
+         */
+        function renderSignupPage() {
+            appHeader.classList.add('hidden');
+            mainContent.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+            document.getElementById('emergency-fab').classList.add('hidden'); // Hide FAB
+
+            loginContainer.innerHTML = `
+                <div class="w-full max-w-sm bg-white p-8 sm:p-10 rounded-xl shadow-2xl border-t-4 border-raktsathi-red">
+                    <div class="text-center mb-6">
+                        <i class="fas fa-user-plus text-5xl text-raktsathi-red mb-3"></i>
+                        <h2 class="text-3xl font-bold text-gray-800">Create Rakt-Sathi Account</h2>
+                        <p class="text-gray-500 mt-1">Register to start managing blood requests and donations.</p>
+                    </div>
+                    
+                    <form id="signup-form" class="space-y-4">
+                                <div>
+                                    <label for="signup-name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                    <input type="text" id="signup-name" placeholder="Your full name" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                                </div>
+                                <div>
+                                    <label for="signup-email" class="block text-sm font-medium text-gray-700 mb-1">Email ID</label>
+                                    <input type="email" id="signup-email" placeholder="Enter your email" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                                </div>
+                                <div>
+                                    <label for="signup-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                    <input type="password" id="signup-password" placeholder="Create a password (min 6 chars)" required minlength="6" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                                </div>
+                                <div>
+                                    <label for="signup-confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                                    <input type="password" id="signup-confirm-password" placeholder="Confirm your password" required minlength="6" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                                </div>
+                        <button type="submit" class="w-full py-3 bg-raktsathi-red text-white font-semibold rounded-lg hover:bg-raktsathi-red-dark transition duration-200 shadow-md">
+                            <i class="fas fa-check-circle mr-2"></i> Sign Up
+                        </button>
+                    </form>
+                    <p class="text-center text-sm mt-4">
+                        Already have an account? <a href="#" id="switch-to-login" class="text-raktsathi-red hover:underline font-medium">Log In</a>
+                    </p>
+                </div>
+            `;
+            document.getElementById('signup-form').addEventListener('submit', handleSignup);
+            document.getElementById('switch-to-login').addEventListener('click', (e) => {
+                e.preventDefault();
+                renderLoginPage();
+            });
+        }
+
+
+        /**
+         * Handles the simulated sign up process.
+         */
+        async function handleSignup(event) {
+            event.preventDefault();
+            // Debug helpers: log and notify immediately so user sees action
+            console.log('handleSignup called');
+            showNotification('Submitting registration...', 'info');
+
+            const name = document.getElementById('signup-name').value.trim();
+            const email = document.getElementById('signup-email').value.trim().toLowerCase();
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+
+            if (password !== confirmPassword) {
+                showNotification('Passwords do not match.', 'error');
+                return;
+            }
+            if (password.length < 6) {
+                showNotification('Password must be at least 6 characters long.', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+                const j = await res.json();
+                if (!res.ok) {
+                    showNotification(j.error || 'Registration failed', 'error');
+                    return;
+                }
+                showNotification('✅ Account created successfully! Please log in.', 'success');
+                renderLoginPage();
+                document.getElementById('login-email').value = email;
+            } catch (err) {
+                console.error('Signup error', err);
+                showNotification('Network error during registration.', 'error');
+            }
+        }
+
+        /**
+         * Handles the login process via backend (/api/auth/login).
+         */
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) {
+                showNotification('Please enter email and password.', 'error');
+                return;
+            }
+
+            const payload = { email: email, password: password };
+
+            const result = await apiFetch('/api/auth/login', 'POST', payload);
+            if (!result) return; // apiFetch already shows notification on network errors
+
+            if (result.error) {
+                showNotification(result.error || 'Login failed.', 'error');
+                return;
+            }
+
+            // Expecting { token, user_id, name }
+            const token = result.token || result.access_token || null;
+            const name = result.name || '';
+
+            if (!token) {
+                showNotification('Login failed: no token received.', 'error');
+                return;
+            }
+
+            try {
+                localStorage.setItem('rs_token', token);
+            } catch (e) {
+                // ignore storage errors but continue
+            }
+
+            isLoggedIn = true;
+            currentUserEmail = email;
+            currentUserName = name || (email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1));
+
+            showNotification(`Welcome back, ${currentUserName}!`, 'success');
+            // Clear password field for security
+            try { document.getElementById('login-password').value = ''; } catch (e) {}
+
+            initializeApp();
+        }
+
+        /**
+         * Logs out the user and returns to the login page.
+         */
+        function handleLogout() {
+            isLoggedIn = false;
+            currentUserEmail = null;
+            document.getElementById('emergency-fab').classList.add('hidden'); // Hide FAB on logout
+            showNotification('You have been logged out.', 'info');
+            renderLoginPage();
+        }
+
+        /**
+         * Initializes the main application after successful login.
+         */
+        async function initializeApp() { // Made async for Firebase init
+            await initializeFirebase(); // NEW: Initialize Firebase after login confirmed
+            
+            loginContainer.classList.add('hidden');
+            appHeader.classList.remove('hidden');
+            mainContent.classList.remove('hidden');
+            document.getElementById('emergency-fab').classList.remove('hidden'); // Show FAB
+
+            // Set initial tab to 'register' and render it
+            // Manually trigger the click on the initial tab button
+            const initialTabButton = document.querySelector('.tab-btn[data-tab="register"]');
+            if (initialTabButton) {
+                // Manually apply initial styles and render
+                initialTabButton.classList.add('bg-raktsathi-red', 'text-white');
+                initialTabButton.classList.remove('text-gray-700', 'hover:bg-red-50');
+                renderDonorRegistration();
+            }
+            
+            document.getElementById('logout-btn').addEventListener('click', handleLogout);
+        }
+
+        // --------------------------------------------------------
+        // UTILITY FUNCTIONS
+        // --------------------------------------------------------
+
+        /**
+         * Displays a temporary notification message.
+         * @param {string} message The message to display.
+         * @param {string} type 'success', 'error', or 'info'.
+         */
+        function showNotification(message, type = 'info') {
+            const box = document.getElementById('message-box');
+            box.textContent = message;
+            box.classList.remove('bg-green-600', 'bg-red-600', 'bg-gray-900');
+
+            switch (type) {
+                case 'success':
+                    box.classList.add('bg-green-600');
+                    break;
+                case 'error':
+                    box.classList.add('bg-red-600');
+                    break;
+                default:
+                    box.classList.add('bg-gray-900');
+            }
+
+            box.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                box.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        /**
+         * Generic API fetch function with error handling. (For Flask Backend)
+         */
+        async function apiFetch(endpoint, method = 'GET', data = null) {
+        const url = `${API_BASE_URL}${endpoint}`;
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+            // Attach JWT token if available
+            try {
+                const token = localStorage.getItem('rs_token');
+                if (token) options.headers['Authorization'] = `Bearer ${token}`;
+            } catch (e) {
+                // ignore storage errors
+            }
+            if (data && method !== 'GET') {
+                options.body = JSON.stringify(data);
+            }
+
+            try {
+                const response = await fetch(url, options);
+                // Attempt to parse JSON even if response is not ok
+                const result = await response.json().catch(() => ({ error: 'Unknown response format' }));
+
+                    if (!response.ok) {
+                    showNotification(`API Error: ${result.error || response.statusText || 'Request failed'}`, 'error');
+                    return null;
+                }
+                return result;
+            } catch (error) {
+                console.error('Network or Parse Error:', error);
+                showNotification(`Connection failed: Check if backend is running on ${API_BASE_URL}.`, 'error');
+                return null;
+            }
+        }
+        
+        /**
+         * Returns Tailwind badge HTML for match status.
+         */
+        function getStatusBadge(status) {
+            let colorClass = 'bg-gray-400';
+            switch(status) {
+                case 'Confirmed':
+                    colorClass = 'bg-green-600';
+                    break;
+                case 'Contacted':
+                    colorClass = 'bg-blue-500';
+                    break;
+                case 'Declined':
+                    colorClass = 'bg-red-500';
+                    break;
+                case 'Pending':
+                default:
+                    colorClass = 'bg-yellow-500';
+            }
+            return `<span class="px-3 py-1 text-xs font-semibold rounded-full text-white ${colorClass}">${status}</span>`;
+        }
+
+        // --------------------------------------------------------
+        // EMERGENCY ALERT FUNCTIONS (NEW)
+        // --------------------------------------------------------
+        
+        let preFetchedLocationData = null;
+
+        /**
+         * Utility for fetching current geolocation.
+         */
+        function getGeolocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    return resolve({ error: "Geolocation not supported by browser." });
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            timestamp: new Date(position.timestamp).toISOString()
+                        });
+                    },
+                    (error) => {
+                        // Handle errors like permission denied, position unavailable, etc.
+                        resolve({ error: `Geolocation failed. Code ${error.code}: ${error.message}` });
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 7000,
+                        maximumAge: 0
+                    }
+                );
+            });
+        }
+
+        /**
+         * Logs a critical emergency alert to public Firestore collection.
+         */
+        async function logEmergencyAlert(locationData) {
+            if (!db || userId === 'unknown') {
+                throw new Error("Database not initialized or user not authenticated.");
+            }
+
+            // Public data path: /artifacts/{appId}/public/data/{your_collection_name}
+            // Use collection path segments to build the collection reference
+            const alertsCollection = fbCollection(db, 'artifacts', appId, 'public', 'data', 'critical_alerts'); // Use aliased function
+            
+            const alertData = {
+                userId: userId,
+                timestamp: new Date().toISOString(),
+                location: locationData,
+                urgency: "CRITICAL",
+                message: "Urgent, Unspecified Blood Need - Sender needs immediate contact.",
+                contactEmail: currentUserEmail,
+            };
+
+            await fbAddDoc(alertsCollection, alertData); // Use aliased function
+            return alertData;
+        }
+
+        // --- MODAL / EMERGENCY UI FUNCTIONS ---
+        
+        window.showConfirmationModal = () => {
+            document.getElementById('confirmationModal').classList.remove('hidden');
+            const modalStatusElement = document.getElementById('modalStatus');
+            const confirmBtn = document.getElementById('confirmAlertButton');
+            
+            modalStatusElement.textContent = 'Fetching precise location...';
+            modalStatusElement.classList.remove('text-green-600', 'text-yellow-600');
+            confirmBtn.disabled = true;
+
+            // Start fetching location immediately
+            fetchLocationForAlert();
+        };
+
+        async function fetchLocationForAlert() {
+            const modalStatusElement = document.getElementById('modalStatus');
+            const confirmBtn = document.getElementById('confirmAlertButton');
+
+            preFetchedLocationData = await getGeolocation();
+
+            if (preFetchedLocationData.error) {
+                modalStatusElement.textContent = '⚠ Location failed: Alert will be sent without coordinates.';
+                modalStatusElement.classList.add('text-yellow-600');
+            } else {
+                modalStatusElement.textContent = '📍 Location secured. Tap SEND to alert donors.';
+                modalStatusElement.classList.add('text-green-600');
+            }
+            confirmBtn.disabled = false;
+        }
+
+
+        window.hideConfirmationModal = () => {
+            document.getElementById('confirmationModal').classList.add('hidden');
+        };
+        
+        function showResultModal(title, message, isError = false) {
+            const resultTitle = document.getElementById('resultTitle');
+            const resultMessage = document.getElementById('resultMessage');
+            
+            resultTitle.textContent = title;
+            resultMessage.textContent = message;
+            resultTitle.classList.toggle('text-red-600', isError);
+            resultTitle.classList.toggle('text-green-600', !isError);
+
+            document.getElementById('resultModal').classList.remove('hidden');
+        }
+
+        window.handleConfirmedAlert = async () => {
+            hideConfirmationModal(); // Hide confirmation modal immediately
+
+            let locationData = preFetchedLocationData;
+            
+            const fab = document.getElementById('emergency-fab');
+            fab.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i>';
+            fab.disabled = true;
+
+            try {
+                if (!locationData) {
+                    // Fallback if location fetching was too slow or logic error
+                    locationData = await getGeolocation(); 
+                }
+
+                // 2. Log to Firestore
+                const loggedAlert = await logEmergencyAlert(locationData);
+                
+                // 3. Show Success
+                const locationMsg = locationData && !locationData.error
+                    ? `Location: Lat ${locationData.latitude.toFixed(4)}, Lon ${locationData.longitude.toFixed(4)}.`
+                    : 'Location: FAILED. Please ensure location services are enabled.';
+
+                showResultModal(
+                    'CRITICAL ALERT DISPATCHED!',
+                    `Emergency request logged by User ID: ${loggedAlert.userId}. ${locationMsg} Nearest donors are now being notified.`,
+                    false
+                );
+
+            } catch (error) {
+                console.error("CRITICAL ALERT LOGGING ERROR:", error);
+                showResultModal(
+                    'Alert Logging Failed',
+                    `Could not log the alert to the database. Reason: ${error.message}.`,
+                    true
+                );
+            } finally {
+                fab.innerHTML = '<i class="fas fa-exclamation-triangle text-xl"></i>';
+                fab.disabled = false;
+            }
+        };
+
+        // --------------------------------------------------------
+        // RENDER FUNCTIONS
+        // --------------------------------------------------------
+
+        /**
+         * Renders the Donor Registration Form.
+         */
+        function renderDonorRegistration() {
+            if (!isLoggedIn) return renderLoginPage();
+
+            contentContainer.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-raktsathi-red border-b pb-2 border-raktsathi-red">
+                    <i class="fas fa-heartbeat mr-2"></i> Donor Registration
+                </h2>
+                <form id="donor-registration-form" class="space-y-4">
+                    <p class="text-gray-600">Register as a life-saving blood donor.</p>
+
+                    <!-- Personal Info -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="donor-name" placeholder="Full Name" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        <input type="email" id="donor-email" placeholder="Email Address" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red" value="${currentUserEmail || ''}" readonly>
+                        <input type="tel" id="donor-phone" placeholder="Phone Number (e.g., 9876543210)" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                            <select id="donor-blood-group" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red bg-white">
+                            <option value="">Select Blood Group *</option>
+                            ${bloodGroups.map(bg => `<option value="${bg}">${bg}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <select id="donor-city" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red bg-white">
+                            <option value="">Select City *</option>
+                            ${cities.map(city => `<option value="${city}">${city}</option>`).join('')}
+                        </select>
+                        <input type="text" id="donor-state" value="Andhra Pradesh / Telangana" placeholder="State" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red" readonly>
+                    </div>
+
+                    <!-- Donation History & Availability -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="donor-last-donation" class="block text-sm font-medium text-gray-700 mb-1">Last Donation Date</label>
+                            <input type="date" id="donor-last-donation" class="p-3 border rounded-lg w-full focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        </div>
+                        <div>
+                            <label for="donor-pints-donated" class="block text-sm font-medium text-gray-700 mb-1">Total Pints Donated</label>
+                            <input type="number" id="donor-pints-donated" value="0" min="0" class="p-3 border rounded-lg w-full focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Availability Status</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="availability" value="Ready" class="form-radio text-raktsathi-red h-4 w-4" checked>
+                                <span class="ml-2">Ready to Donate</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="availability" value="Not Available" class="form-radio text-raktsathi-red h-4 w-4">
+                                <span class="ml-2">Currently Unavailable</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" id="donor-is-active" checked class="form-checkbox text-raktsathi-red rounded h-4 w-4">
+                                <span class="ml-2 text-sm font-medium text-gray-700">Set as Active Donor</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="w-full py-3 bg-raktsathi-red text-white font-semibold rounded-lg hover:bg-raktsathi-red-dark transition duration-200 shadow-md">
+                        <i class="fas fa-check-circle mr-2"></i> Register Donor
+                    </button>
+                </form>
+            `;
+            // Pre-fill logged-in user email
+            if (currentUserEmail) {
+                document.getElementById('donor-email').value = currentUserEmail;
+            }
+            document.getElementById('donor-registration-form').addEventListener('submit', handleDonorRegistration);
+        }
+
+        /**
+         * Handles the submission of the Donor Registration Form.
+         */
+        async function handleDonorRegistration(event) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById('donor-name').value,
+                email: document.getElementById('donor-email').value,
+                phone: document.getElementById('donor-phone').value,
+                blood_group: document.getElementById('donor-blood-group').value,
+                city: document.getElementById('donor-city').value,
+                state: document.getElementById('donor-state').value,
+                last_donation_date: document.getElementById('donor-last-donation').value || null,
+                pints_donated: parseInt(document.getElementById('donor-pints-donated').value) || 0,
+                is_active: document.getElementById('donor-is-active').checked ? 1 : 0,
+                availability: document.querySelector('input[name="availability"]:checked').value
+            };
+
+            const result = await apiFetch('/api/donor/register', 'POST', data);
+
+            if (result && result.donor_id) {
+                showNotification(`✅ Donor ${result.donor_id} registered successfully!`, 'success');
+                event.target.reset(); // Clear form
+                // Restore email after reset
+                if (currentUserEmail) {
+                    document.getElementById('donor-email').value = currentUserEmail;
+                }
+            }
+        }
+
+        /**
+         * Renders the Blood Request Form.
+         */
+        function renderBloodRequest() {
+            if (!isLoggedIn) return renderLoginPage();
+
+            contentContainer.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-raktsathi-red border-b pb-2 border-raktsathi-red">
+                    <i class="fas fa-hospital mr-2"></i> Request Blood
+                </h2>
+                <form id="blood-request-form" class="space-y-4">
+                    <p class="text-gray-600">Enter patient details to find the best matching donors near you.</p>
+
+                    <!-- Patient Info -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="req-patient-name" placeholder="Patient Name" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        <select type="email" id="req-blood-group" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red bg-white">
+                            <option value="">Blood Group Needed *</option>
+                            ${bloodGroups.map(bg => `<option value="${bg}">${bg}</option>`).join('')}
+                        </select>
+                        <input type="tel" id="req-phone" placeholder="Contact Phone" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        <input type="email" id="req-email" placeholder="Contact Email (Optional)" class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                    </div>
+                    
+                    <!-- Location & Urgency -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <select id="req-city" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red bg-white">
+                            <option value="">Patient Location City *</option>
+                            ${cities.map(city => `<option value="${city}">${city}</option>`).join('')}
+                        </select>
+                        <select id="req-urgency" required class="p-3 border rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red bg-white">
+                            <option value="">Select Urgency *</option>
+                            ${urgencies.map(u => `<option value="${u}">${u}</option>`).join('')}
+                        </select>
+                        <div>
+                            <input type="number" id="req-radius" placeholder="Search Radius (km)" value="20" min="5" required class="p-3 border rounded-lg w-full focus:ring-raktsathi-red focus:border-raktsathi-red">
+                            <span class="text-xs text-gray-500 block mt-1">Distance in kilometers</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-raktsathi-red text-white font-semibold rounded-lg hover:bg-raktsathi-red-dark transition duration-200 shadow-md">
+                        <i class="fas fa-bullhorn mr-2"></i> Submit Request & Find Matches
+                    </button>
+                    <div id="request-result" class="mt-4 p-4 bg-red-50 border border-raktsathi-red rounded-lg hidden"></div>
+                </form>
+            `;
+            document.getElementById('blood-request-form').addEventListener('submit', handleBloodRequest);
+        }
+
+        /**
+         * Handles the submission of the Blood Request Form.
+         */
+        async function handleBloodRequest(event) {
+            event.preventDefault();
+            const resultBox = document.getElementById('request-result');
+            resultBox.classList.add('hidden');
+            resultBox.innerHTML = '';
+
+            const data = {
+                patient_name: document.getElementById('req-patient-name').value,
+                email: document.getElementById('req-email').value,
+                phone: document.getElementById('req-phone').value,
+                blood_group: document.getElementById('req-blood-group').value,
+                city: document.getElementById('req-city').value,
+                urgency: document.getElementById('req-urgency').value,
+                radius_km: parseInt(document.getElementById('req-radius').value)
+            };
+
+            resultBox.innerHTML = '<p class="text-gray-700"><i class="fas fa-spinner fa-spin mr-2"></i> Matching donors, please wait...</p>';
+            resultBox.classList.remove('hidden');
+
+            const result = await apiFetch('/api/request/create', 'POST', data);
+
+            if (result && result.request_id) {
+                showNotification(`✅ Request #${result.request_id} created. Top ${result.top_donors.length} donors matched!`, 'success');
+                
+                resultBox.innerHTML = `
+                    <p class="text-lg font-semibold text-raktsathi-red mb-2">Request ID: <span class="text-gray-800">${result.request_id}</span></p>
+                    <p class="text-md font-medium text-gray-700">Blood Group: ${result.blood_group_needed} | City: ${result.city}</p>
+                    <p class="text-sm text-gray-600 mt-2">The system has identified *${result.top_donors.length} potential donors* within a ${result.radius_used_km}km radius. They will now be contacted.</p>
+                    <p class="text-sm text-gray-600 mt-2">Use the Request ID above in the 'View Matches' tab to check for donor consent status.</p>
+                `;
+                event.target.reset(); // Clear form
+            } else {
+                resultBox.innerHTML = '<p class="text-red-700"><i class="fas fa-exclamation-triangle mr-2"></i> Failed to create request. See notification for details.</p>';
+            }
+            resultBox.classList.remove('hidden');
+        }
+
+        /**
+         * Renders the Match Viewer section.
+         */
+        function renderMatchViewer() {
+            if (!isLoggedIn) return renderLoginPage();
+
+            contentContainer.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-raktsathi-red border-b pb-2 border-raktsathi-red">
+                    <i class="fas fa-search-dollar mr-2"></i> View Donor Matches
+                </h2>
+                
+                <!-- Special Offers Callout -->
+                <div class="bg-red-50 border-l-4 border-raktsathi-red p-4 mb-6 rounded-lg shadow-inner">
+                    <h3 class="text-lg font-semibold text-raktsathi-red flex items-center">
+                        <i class="fas fa-medal mr-2"></i> Active Donor Benefits
+                    </h3>
+                    <p class="text-sm text-gray-700 mt-1">
+                        *Active Donors* (indicated by the <span class="text-green-600 font-bold">★ Star Badge</span>) are prioritized in critical emergencies and may qualify for special health checkup offers from our partners.
+                    </p>
+                </div>
+
+                <!-- Match Search Form (Completed section) -->
+                <form id="match-search-form" class="flex flex-col sm:flex-row gap-2 mb-6">
+                    <input type="text" id="match-request-id" placeholder="Enter Request ID (e.g., REQ1001)" required class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                    <button type="submit" class="p-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition duration-200">
+                        <i class="fas fa-search mr-1"></i> Search Matches
+                    </button>
+                </form>
+                
+                <div id="match-results" class="space-y-4">
+                    <p class="text-gray-500 text-center p-4 border border-dashed rounded-lg">Enter a Request ID above to view matched donors and their current response status.</p>
+                </div>
+            `;
+            document.getElementById('match-search-form').addEventListener('submit', handleMatchSearch);
+        }
+
+        /**
+         * Handles the search for donor matches by Request ID.
+         */
+        async function handleMatchSearch(event) {
+            event.preventDefault();
+            const requestId = document.getElementById('match-request-id').value.trim();
+            const resultsContainer = document.getElementById('match-results');
+            resultsContainer.innerHTML = `<p class="text-center p-4 text-gray-700"><i class="fas fa-spinner fa-spin mr-2"></i> Searching for Request ID: ${requestId}...</p>`;
+
+            // Simulating API call to Flask backend
+            const result = await apiFetch(`/api/request/matches/${requestId}`, 'GET');
+
+            if (result && Array.isArray(result.matches)) {
+                if (result.matches.length === 0) {
+                    resultsContainer.innerHTML = `<p class="text-center p-4 text-gray-500"><i class="fas fa-info-circle mr-2"></i> No active donors matched for Request ID <strong>${requestId}</strong> yet.</p>`;
+                    showNotification(`No matches found for Request ID ${requestId}.`, 'info');
+                    return;
+                }
+
+                resultsContainer.innerHTML = `
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Top Matches for Request ID: <span class="text-raktsathi-red">${requestId}</span></h3>
+                    <div class="space-y-3">
+                        ${result.matches.map(match => `
+                            <div class="p-4 rounded-xl shadow-lg border-l-4 ${match.is_active ? 'border-green-500 bg-green-50' : 'border-raktsathi-red bg-red-50'}">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-lg font-semibold text-gray-800 flex items-center">
+                                            ${match.name}
+                                            <span class="ml-2 px-2 py-0.5 text-xs font-bold rounded-full text-white bg-gray-900">${match.blood_group}</span>
+                                            ${match.is_active ? '<span class="ml-2 text-green-600" title="Active Donor">★</span>' : ''}
+                                        </p>
+                                        <p class="text-sm text-gray-600"><i class="fas fa-map-marker-alt mr-1"></i> ${match.city}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        ${getStatusBadge(match.status)}
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-sm text-gray-700">Phone: ${match.phone} | Email: ${match.email}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                showNotification(`Found ${result.matches.length} matches for Request ID ${requestId}.`, 'success');
+
+            } else if (result && result.error) {
+                 resultsContainer.innerHTML = `<p class="text-center p-4 text-red-700"><i class="fas fa-times-circle mr-2"></i> ${result.error}</p>`;
+            } else if (result === null) {
+                 // Error handled by apiFetch, but clear spinner
+                 resultsContainer.innerHTML = `<p class="text-center p-4 text-gray-500 border border-dashed rounded-lg">Enter a Request ID above to view matched donors and their current response status.</p>`;
+            }
+        }
+
+        /**
+         * Renders the Gemini-powered Chatbot interface.
+         */
+        function renderChatbot() {
+            if (!isLoggedIn) return renderLoginPage();
+
+            contentContainer.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-raktsathi-red border-b pb-2 border-raktsathi-red">
+                    <i class="fas fa-robot mr-2"></i> Rakt-Sathi AI Assistant
+                </h2>
+                <div class="flex flex-col h-full">
+                    <!-- Chat History Area -->
+                    <div id="chat-history" class="flex-grow p-4 space-y-4 shadow-inner">
+                        <!-- Messages will be rendered here -->
+                    </div>
+
+                    <!-- Chat Input Form -->
+                    <form id="chat-form" class="mt-4 flex gap-2">
+                        <input type="text" id="chat-input" placeholder="Ask about donation eligibility, blood types, or Rakt-Sathi features..." required class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-raktsathi-red focus:border-raktsathi-red">
+                        <button type="submit" id="send-chat-btn" class="p-3 bg-raktsathi-red text-white font-semibold rounded-lg hover:bg-raktsathi-red-dark transition duration-200 w-16">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            `;
+            document.getElementById('chat-form').addEventListener('submit', handleChatSubmit);
+            renderChatHistory(); // Render existing history (including initial message)
+        }
+
+        /**
+         * Renders all messages in the chat history array.
+         */
+        function renderChatHistory() {
+            const historyContainer = document.getElementById('chat-history');
+            if (!historyContainer) return;
+
+            // Add initial welcome message if history is empty
+            if (chatHistory.length === 0) {
+                const initialMessage = {
+                    role: 'model',
+                    text: "Hello! I am your Rakt-Sathi AI Assistant. I can help you with questions about blood donation eligibility, health requirements, and how to use the Rakt-Sathi platform. How can I assist you today?"
+                };
+                chatHistory.push(initialMessage);
+            }
+
+            historyContainer.innerHTML = chatHistory.map(msg => `
+                <div class="flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}">
+                    <div class="max-w-[85%] p-3 rounded-xl shadow-md ${msg.role === 'user' ? 'chat-message-user' : 'chat-message-bot'}">
+                        <p class="text-sm text-gray-800 whitespace-pre-wrap">${msg.text}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            // Scroll to bottom
+            historyContainer.scrollTop = historyContainer.scrollHeight;
+        }
+        
+        /**
+         * Calls the Gemini API with exponential backoff for chat generation.
+         * @param {string} userQuery The user's message.
+         * @returns {string | null} The bot's response text or null on failure.
+         */
+        // Replace direct Gemini calls with server-side chatbot endpoint.
+        // This sends the user's text to the Flask backend (/chatbot) which uses
+        // chatbot_helper.get_bot_reply and returns { reply: "..." }.
+        async function callGeminiChatbot(userQuery) {
+            // Use central apiFetch so Authorization and error handling are consistent
+            const payload = { message: userQuery };
+            const result = await apiFetch('/chatbot', 'POST', payload);
+            if (!result) return null; // apiFetch already showed an error notification
+            // Expecting { reply: '...' }
+            return result.reply || null;
+        }
+
+        /**
+         * Handles the submission of a new chat message.
+         */
+        async function handleChatSubmit(event) {
+            event.preventDefault();
+            const inputField = document.getElementById('chat-input');
+            const userMessage = inputField.value.trim();
+
+            if (!userMessage) return;
+
+            // 1. Add user message to history and re-render
+            chatHistory.push({ role: 'user', text: userMessage });
+            renderChatHistory();
+            inputField.value = '';
+
+            // Disable input and show loading
+            const sendBtn = document.getElementById('send-chat-btn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            inputField.disabled = true;
+
+            // 2. Call the Gemini API
+            const botResponse = await callGeminiChatbot(userMessage);
+
+            // 3. Add bot response to history and re-render
+            if (botResponse) {
+                chatHistory.push({ role: 'model', text: botResponse });
+            } else {
+                 chatHistory.push({ role: 'model', text: "Sorry, I am having trouble connecting to the AI service right now. Please try again in a moment." });
+            }
+            renderChatHistory();
+
+            // Re-enable input
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            inputField.disabled = false;
+            inputField.focus();
+        }
+
+        // --------------------------------------------------------
+        // NAVIGATION & INIT LOGIC
+        // --------------------------------------------------------
+
+        // Tab switching logic
+        navTabs.addEventListener('click', (e) => {
+            const button = e.target.closest('.tab-btn');
+            if (!button) return;
+
+            const newTab = button.dataset.tab;
+            if (activeTab === newTab) return;
+
+            activeTab = newTab;
+
+            // Reset tab styles
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-raktsathi-red', 'text-white');
+                btn.classList.add('text-gray-700', 'hover:bg-red-50');
+            });
+
+            // Set active tab style
+            button.classList.add('bg-raktsathi-red', 'text-white');
+            button.classList.remove('text-gray-700', 'hover:bg-red-50');
+
+            // Render content
+            switch (activeTab) {
+                case 'register':
+                    renderDonorRegistration();
+                    break;
+                case 'request':
+                    renderBloodRequest();
+                    break;
+                case 'matches':
+                    renderMatchViewer();
+                    break;
+                case 'chatbot':
+                    renderChatbot();
+                    break;
+            }
+        });
+
+        // Initial render on load
+        window.onload = renderLoginPage;
+    </script>
+</body>
+</html>

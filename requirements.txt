@@ -1,0 +1,10 @@
+flask
+flask-cors
+mysql-connector-python
+pandas
+numpy
+joblib
+bcrypt
+PyJWT
+python-dotenv
+requests
