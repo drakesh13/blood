@@ -8,5 +8,4 @@ bcrypt
 PyJWT
 python-dotenv
 requests
-scikit-learn
-
+scikit-learn==1.7.1
