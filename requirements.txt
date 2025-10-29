@@ -8,3 +8,5 @@ bcrypt
 PyJWT
 python-dotenv
 requests
+scikit-learn
+
